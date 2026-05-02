@@ -1,302 +1,98 @@
 
-# 🚀 ML-Powered Pipeline for Daily AAPL Stock Price Forecasting
+# 🚀 AAPL Stock Price Forecasting App (PyTorch LSTM)
 
-This is an END-TO-END MACHINE LEARNING project that implements a complete time series forecasting pipeline. It integrates PYTORCH LSTM for sequence modeling, AIRFLOW for workflow orchestration, MLFLOW for experiment tracking, and STREAMLIT for interactive deployment.
-
-The entire system runs locally and demonstrates a lightweight MACHINE LEARNING SYSTEM DESIGN (MLSD) — covering the full ML lifecycle from data ingestion to model deployment — without external cloud or CI/CD dependencies.  
- 
----
-
-## 📊 Models Trained and Tested
-We compared multiple approaches:
-
-| Model Type  | Library Used  | Notes |
-|-------------|---------------|-------|
-| SARIMA | Classical Time Series (TSA) | Baseline for seasonality patterns |
-| Random Forest | scikit-learn | Ensemble regression |
-| XGBoost | xgboost | Boosted decision trees |
-| LSTM | TensorFlow/keras | Deep learning model |
-| LSTM | PyTorch | Deep learning model – **best performing** |
-
-The **LSTM (Long Short-Term Memory)** model implemented in **PyTorch** achieved the highest predictive performance.
+🔗 **Live App (Try it instantly):**  
+https://akholman-deep-learning-stock-forecasting-app-app-uq0keh.streamlit.app/
 
 ---
 
-## 🧠 LSTM Model Details (PyTorch)
+## 📌 Overview
 
-### Data Scaling
-All features (X) and target (y) were scaled using **Min–Max scaling**:
-- Fit scalers on **training data only**
-- Apply same scalers to validation and test sets
+This repository contains the **deployment layer** of an end-to-end ML system for **next-day AAPL stock price prediction** using a **PyTorch LSTM model**.
 
-Saved as:
-- `scaler_X.joblib`
-- `scaler_y.joblib`
+The app provides an interactive dashboard built with **Streamlit**, where users can:
+- Fetch latest AAPL market data
+- Run inference using a trained LSTM model
+- Visualize predicted vs actual prices
 
 ---
 
-### Sequence Creation
-```python
-def create_sequences(X, y, time_steps=60):
-    Xs, ys = [], []
-    for i in range(len(X) - time_steps):
-        Xs.append(X[i:(i + time_steps)])
-        ys.append(y[i + time_steps])
+## 🧠 Model Overview
 
-Purpose: transform 1D time-series into overlapping sequences.
-Each sequence of 60 days becomes one LSTM sample; the next day’s close price is the label.
-Output: NumPy arrays (X_train_seq, y_train_seq, etc.)
+- Model: **LSTM (PyTorch)**
+- Input: 60-day rolling window of OHLCV features
+- Output: Next-day adjusted close price
+- Feature scaling: MinMaxScaler
+- Trained externally and loaded for inference only
 
-----------------------
+---
 
-CONVERTION to TENSORS
+## ⚙️ Tech Stack
 
-PyTorch models operate on tensors with automatic differentiation.
-We convert NumPy matrices into PyTorch tensors:
-Input format: (samples, time_steps, features)
-Batch size: 32
-DataLoader is used for mini-batch training.
+- PyTorch (model inference)
+- Streamlit (UI)
+- Yahoo Finance (live data)
+- Pandas / NumPy (data processing)
+- Joblib (scalers)
+- scikit-learn (preprocessing)
 
+---
 
-LSTM Architecture:
+## 📂 Repository Structure
 
-class LSTMModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_layers, output_dim, dropout=0.2):
-        super(LSTMModel, self).__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True, dropout=dropout)
-        self.fc1 = nn.Linear(hidden_dim, 16)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(16, output_dim)
+```
+app.py                  → Streamlit inference app
+best_lstm_model.pth    → Trained PyTorch model
+scaler_X.joblib        → Feature scaler
+scaler_y.joblib        → Target scaler
+requirements.txt       → Dependencies
+README.md              → Documentation
+```
 
-    def forward(self, x):
-        out, _ = self.lstm(x)
-        out = out[:, -1, :]  # last time step
-        out = self.relu(self.fc1(out))
-        out = self.fc2(out)
-        return out
+---
 
-__________________
+## 🚀 How It Works
 
-Training Workflow
-Forward Pass: Input → LSTM layers → Fully connected → Output
-Compute Loss: Mean Squared Error (MSE)
-Backpropagation (BPTT):
-Gradients flow through fc2 → fc1 → LSTM2 → LSTM1 → through all 60 time steps
-Optimizer:
-            optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+1. Load latest AAPL data via Yahoo Finance
+2. Apply saved MinMax scalers
+3. Create 60-day sequences
+4. Run PyTorch LSTM inference
+5. Inverse transform predictions
+6. Display results in Streamlit dashboard
 
-    optimizer.zero_grad() clears old gradients
-    optimizer.step() updates all weights and biases
-Repeat: for every mini-batch → completes one epoch
-Evaluation:
-        Disable gradients (torch.no_grad())
-        Predict → reverse scale → compute RMSE/MAE
+---
 
-_______________________
+## 📊 Features
 
-⚙️ Integration of Airflow with the Project
-Project Files
-| File               | Purpose                                                         |
-| ------------------ | --------------------------------------------------------------- |
-| `train.py`         | Retrains the LSTM and saves best model                          |
-| `mlsd_pipeline.py` | Defines Airflow DAG that runs `train.py` (scheduled or manual)  |
-| `app.py`           | Streamlit app that loads the latest model and shows predictions |
+- Real-time stock data fetching
+- Next-day price prediction
+- Interactive visualization
+- Lightweight CPU deployment
+- Fully reproducible inference pipeline
 
-            train.py  →  [Airflow DAG: mlsd_pipeline.py]  →  app.py (Streamlit)
+---
 
-------------------------
+## ☁️ Deployment
 
-🧭 MLFLOW Integration
+- Hosted on **Streamlit Community Cloud**
+- No backend server required
+- Runs fully on CPU inference
 
-MLflow automatically tracks training runs from train.py, logging:
-        Metrics (loss, MAE, RMSE)
-        Hyperparameters (epochs, learning rate, etc.)
-        Model artifacts (best_lstm_model.pth, scaler_X.joblib, scaler_y.joblib)
-        Versioning info and run metadata
-Local tracking:
-        Artifacts and runs stored in /mlruns
-        No server required for local experiments
+---
 
-We can also manually start the MLflow UI with:
-            mlflow ui --backend-store-uri ./mlruns
+## 🔗 Related Project
 
-_______________________
-⚙️ Operation Modes
+This is the **deployment layer** of a full ML system that includes:
+- Model training (PyTorch + multiple ML models)
+- Airflow orchestration
+- MLflow experiment tracking
+- Evidently monitoring
 
-|      Case                | File You Run      | How It Works              | When to Use                |
-| ------------------------ | ----------------- | ------------------------  | -------------------------- |
-| **1️⃣ Trigger via         |                   | Airflow executes all.     |  Use for production-like.   |
-|Airflow UI (automated)**  | `mlsd_pipeline.py`| steps defined in the DAG. |       automation            |
-|--------------------------------------------------------------------------------------------------------|
-| **2️⃣ Run manually        |                   | Direct training and MLflow |   Use for debugging        |
-| (testing)**              | `train.py`        | logging without Airflow.   |   or rapid testing         |
-|--------------------------------------------------------------------------------------------------------|
+---
 
-🗂️ Project Files Summary
+## 📌 Note
 
-| File                 | Purpose             |      Main Tasks         
-| -------------------- | ------------------- | ------------------------------------------------------
-| **train.py**         | Model training      | - Loads data<br
-|                      |                     | - Creates sequences
-|                      |                     | - Trains LSTM with PyTorch<br
-|                      |                     | - Saves `best_lstm_model.pth`, `scaler_X.joblib`, 
-|                      |                     |`scaler_y.joblib`
-|                      |                     | - Logs everything to MLflow 
+This app is for **educational and research purposes only**.  
+Not financial advice.
 
-| **mlsd_pipeline.py** | Airflow DAG         | - Defines task dependencies 
-|                      |                     |- Runs `train.py` and optionally starts `app.py` 
-|                      |                     | Can be triggered via Airflow scheduler or manually
-|                      |                     |
-| **app.py**           | Streamlit Dashboard | - Loads latest model and scalers 
-|                      |                     |- Displays predictions, metrics, and charts interactively
-|----------------------|---------------------|-----------------------------------------------------------
-
-
-
-🧩 Libraries and Tools Used:
-
-| Tool / Library | Role            | Key Features           | UI               | UI Function  
-| -------------- | --------------- | ---------------------- | ---------------- | ----------------------- 
-| **PyTorch**    | ML framework    | LSTM model,            |   ❌             | N/A
-|                |                 | tensor ops, autograd   |                  |
-|                |                 |                        |                  |
-| **Airflow**    | Workflow        | DAG scheduling,       | ✅ Airflow Web UI  | Visualize DAGs, triggger
-|                | orchestration   | task dependencies     |                    |  tasks, monitor logs 
-|                |                 |                       |                    |
-| **MLflow**     | Experiment      | Logs metrics,         | ✅ MLflow UI       | Compare runs, inspect 
-|                |  tracking       | parameters, and models|                    |models and metrics    
-|                |                 |                       |                    |
-| **Streamlit**  | Web dashboard   | Visual model results  | ✅ Streamlit Web UI | User-facing visualization 
-|                |                 |  and predictions      |                    | and testing interface 
-|----------------------------------------------------------------------------------------------------------
-
-
-✅ Summary
-
- - Airflow automates and orchestrates the pipeline
- - PyTorch LSTM delivers accurate stock forecasts
- - MLflow tracks every training experiment
- - Streamlit provides an interactive dashboard
- - All components operate locally, seamlessly integrated through the Airflow DAG
-
-
-
-🔹 Future Extensions
- - Dockerize the project for reproducibility
- - Add model registry and versioning via MLflow
- - Deploy Streamlit + Airflow on Render or AWS
-
-_________________________________________________________________________________________________________
-_________________________________________________________________________________________________________
-
-APPENDICES: 
-
-Machine Learning System Design with integrated AIRFLOW, MLflow, Streamlit:
-
-1. Add small Python scripts in local_MLSD/:
-    train.py — retrain the LSTM and save best_lstm_model.pth.
-
-2. Add a DAG in Airflow’s dags/ folder that:
-    Runs train.py (scheduled or manual).
-    
-3. MLFlow tracking experiments, metrics, models and params. 
-
-4. Streamlit (app.py) as UI best_lstm_model.pth.
-
-
-
-train.py --> [airflow DAG - mlst_best_model.pth] --> [app.py manually run streamlit]
-
-
-             ┌─────────────────────┐
-             │  Airflow Webserver  │
-             │ - (UI, monitoring)  |
-             | - trigger DAG       │ 
-             └─────────┬──────────-┘
-                       │ Shows DAGs & Task Status
-                       │
-             ┌─────────▼──────────----┐
-             │  Airflow Scheduler     │
-             │  (Runs continuously    │
-             │   in background)       |
-             |checks DAGs and triggers│
-             └─────────┬──────----────┘
-                       │
-                       │ Triggers scheduled tasks
-                       ▼
-              ┌─────────────────--┐
-              │ airflow executor: |    
-              | train.py          │
-              │ (LSTM model       │
-              │  training &       │
-              │  saving artifacts)│
-              └─────────┬─────────┘
-                        │
-        ┌───────────────┴───────────--------────┐
-        │                                       │
-        ▼                                       ▼
- ┌──────────-────-------─┐               ┌───────────────------┐
- │ Best LSTM Model.      │               │ Scalers & Data.     │
- │ (best_lstm_model.pth) │               │ (scaler_X, scaler_y)│
- └───────────--------────┘               └───────────────------┘
-        │                                        │
-        └───────────────┬──────────────----------|           
-                        |
-                        |
-                        ▼
-                 ┌───────────────┐
-                 │ Streamlit App │
-                 │  (Interactive │
-                 │   UI for      │
-                 │  predictions) │
-                 └───────────────┘
-           
-
-MLFLOW INTEGRATION:  
-
-✅ In MLflow tracking the train.py every training run automatically logs:
-
-    - Training metrics (loss, accuracy, etc.)
-    - Parameters (hyperparameters, learning rate, epochs etc.)
-    - Model artifacts (best_lstm_model.pth, scaler_X.joblib, scaler_y.joblib)
-    - And versioning info
-
-MLflow integration:
-train.py logs model and metrics to the MLflow server (local folders /mlruns and /mlartifacts).
-MLflow is separate from Airflow and Streamlit but can be tracked automatically whenever train.py runs.
-
-Manual run of train.py:
-You can run python train.py independently of Airflow; it will train the model and log everything to MLflow.
-Streamlit will automatically pick up the latest model and scalers.
-
-Airflow DAG (mlsd_pipeline.py) triggers tasks:
-Airflow scheduler must be running for DAG-triggered tasks.
-Webserver only displays the UI and allows manual DAG triggers; it does not execute tasks.
-
-
-We create:                    train.py, mlsd_pipeline.py, app.py, requirements.txt
-Script execution creates:     best_lstm_model.pth, scalar_X_joblib, scalar_y.joblib, mlruns (folder)  
-
-|-------------------|
-| airflow webserver |     
-|   DAG, UI         |
-| mlsd_pipeline.py  |                 Manual
-|  orchestration    |        |----------------------------|
-|-------------------|        |  train.py LSTM model.      |
-         |                   | saves best_lstm_nodel.pth  | 
-         V                   | saves scalarX.joblob.      |
-|-------------------|        | saves scalary.joblib       |
-| airflow scheduler | ---->  | log model and metrics      |
-|                   |        | to MLFlow                  |
-|-------------------|        |----------------------------|
-         |                                 |
-         |                                 |
-         |                                 V
-         |                   |--------------------------|       |------------------------|
-         |                   |   app.py (Streamlit)     |       |   MLFlow               |
-         |---------------->  | - loads models, scalers  | ....> | - tracking experiments |
-                             | - shows predictions      |       | models, metrics, param |
-                             | - reads update results   |       | saves in mlruns        |
-                             |--------------------------|       |------------------------|    
-
-
+---
